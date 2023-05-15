@@ -1,14 +1,23 @@
 import discord
 import requests
 import random
+import aiohttp
+import os
 from discord_slash import SlashCommand
 from discord_slash.utils.manage_commands import create_option, create_choice
 from discord_slash.model import SlashCommandOptionType
 from discord.ext import commands
 from bs4 import BeautifulSoup
+from discord_slash import SlashContext
+
 
 bot = commands.Bot(command_prefix='!', intents=discord.Intents.all())
 slash = SlashCommand(bot, sync_commands=True)
+
+async def download_file(url: str):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            return await response.read()
 
 shown_urls = set()
 MAX_SHOWN_URLS = 100
@@ -127,6 +136,36 @@ async def trending(ctx):
                 continue
         else:
             await ctx.send('No results found.')
-            return
+
+
+@slash.slash(name="danbooru", description="Get a random image of Gawr Gura from Danbooru!")
+async def gawr_gura(ctx: SlashContext, page_number: int = 1):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f'https://danbooru.donmai.us/posts.json?tags=gawr_gura%20-rating:e&page={page_number}') as r:
+            response = await r.json()
+            if len(response) == 0:
+                await ctx.send("No results found!")
+            else:
+                random.shuffle(response)  # Shuffle the list of posts
+                embeds = []
+                for i in range(0, len(response), 24):
+                    embed = discord.Embed(title='Danbooru')
+                    for post in response[i:i+24]:
+                        file_url = post.get('file_url')
+                        if file_url is not None:
+                            embed.set_image(url=file_url)  # Set the image directly in the embed
+                            break  # Stop after finding the first image
+                    if embed.image is not None:
+                        embeds.append(embed)
+
+                if len(embeds) == 0:
+                    await ctx.send("No valid image found on this page!")
+                else:
+                    for embed in embeds:
+                        await ctx.send(embed=embed)
+
+                total_count = r.headers.get('X-Total-Count')
+                if total_count is not None:
+                    await ctx.send(f"Total results: {total_count}")
 
 bot.run('MTEwNjA2MjQ4Mzc0MDk1NDYzNA.Gq6Z-9.ITB8iqe98aXJYZ0OjrBCDLcGD1jjqSKm3jv-2A')
