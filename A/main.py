@@ -3,11 +3,13 @@ import random
 import aiohttp
 import requests
 import config
+from games import BlackjackGame
 from discord_slash import SlashCommand
 from discord.ext import commands
 from bs4 import BeautifulSoup
 from discord_slash import SlashContext
 
+# !!!!!!!!!!!!!! MAIN CODE !!!!!!!!!!!!!!
 bot = commands.Bot(command_prefix='!', intents=discord.Intents.all())
 slash = SlashCommand(bot, sync_commands=True)
 
@@ -164,5 +166,43 @@ async def gawr_gura(ctx: SlashContext, page_number: int = 1):
                 if total_count is not None:
                     await ctx.send(f"Total results: {total_count}")
 
+@bot.event
+async def on_reaction_add(reaction, user):
+    if reaction.count >= 1 and str(
+            reaction.emoji) == '📌':  # Change the threshold count and emoji as per your requirement lmao
+        channel = bot.get_channel(YOUR_CHANNEL_ID)
+
+        embed = discord.Embed(
+            title="Message Contents",
+            description=reaction.message.content,
+            color=discord.Color.blue()
+        )
+
+        embed.set_author(name=reaction.message.author.name, icon_url=reaction.message.author.avatar_url)
+
+        for attachment in reaction.message.attachments:
+            if attachment.content_type.startswith("image"):
+                embed.set_image(url=attachment.url)
+
+        for embed in reaction.message.embeds:
+            if embed.type == "image":
+                embed.set_image(url=embed.url)
+
+        await channel.send(embed=embed)
+
+
+@slash.slash(name="setchannel",
+             description="Set the channel for message contents")
+async def set_channel(ctx: SlashContext, channel: discord.TextChannel):
+    global YOUR_CHANNEL_ID
+    YOUR_CHANNEL_ID = channel.id #store channel ID here
+    await ctx.send(f"Channel set to {channel.mention}")
+
+# !!!!!!!!!!!!!! GAMES SECTION !!!!!!!!!!!!!!
+
+@bot.command()
+async def blackjack(ctx):
+    game = BlackjackGame(ctx)
+    await game.play()
 
 bot.run(config.TOKEN)
